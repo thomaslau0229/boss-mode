@@ -1,0 +1,14 @@
+{
+  "id": "boss-mode",
+  "name": "boss-mode",
+  "version": "1.0.0",
+  "description": "Claude acts as orchestrator (decision-maker): plans, delegates heavy work to cheaper AI models (DeepSeek, Groq, Ollama), then reviews and verifies. Saves Claude tokens for decisions only.",
+  "skills": [
+    {
+      "path": "../SKILL.md",
+      "name": "boss-mode"
+    }
+  ],
+  "repository": "https://github.com/thomaslau0229/boss-mode",
+  "license": "MIT"
+}
