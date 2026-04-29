@@ -70,15 +70,17 @@ Claude sends this to the worker, receives the draft, writes it to disk, and runs
 ## Installation
 
 ```bash
-# 1. Clone or download
+# 1. Clone
 git clone https://github.com/thomaslau0229/boss-mode.git
+cd boss-mode
 
-# 2. Install the skill
-mkdir -p ~/.claude/skills/boss-mode
-cp boss-mode/SKILL.md ~/.claude/skills/boss-mode/SKILL.md
+# 2. Run the setup script (installs + configures worker paths)
+bash setup.sh
 
-# 3. Restart Claude Code (or open a new session)
+# 3. Restart Claude Code
 ```
+
+The setup script will ask for your worker command paths and patch them into the skill automatically. You can also install manually by copying `SKILL.md` to `~/.claude/skills/boss-mode/SKILL.md`.
 
 Claude Code scans skill descriptions at startup. It will automatically load `boss-mode` when it detects a task that fits the trigger conditions.
 
@@ -199,3 +201,62 @@ Issues and PRs welcome — especially new worker templates, delegation prompt ex
 ## License
 
 MIT
+
+---
+
+## 中文说明
+
+> 一个 Claude Code 技能，让 Claude 不再把昂贵的 token 浪费在便宜模型也能干的活儿上。
+
+Claude 扮演**调度者（老板）**的角色：负责规划、分工、审查和验证。  
+更便宜的模型扮演**工人**：负责写代码、起草文档、做分析。
+
+### 三层模型
+
+| 层级 | 谁 | 什么时候用 |
+|------|-----|------|
+| **老板** | Claude | 规划、架构设计、文件操作、最终决策、跟你沟通 |
+| **高级工人** | DeepSeek（或类似模型） | 代码起草、推理分析、测试用例生成 |
+| **批量工人** | Groq / Ollama | 翻译、格式化、大批量重复性任务 |
+
+核心理念：Claude 的 token 很贵。只在真正需要 Claude 判断力的时候才用它。
+
+### 老板工作流
+
+每个任务都走这个循环：
+1. **规划** — Claude 把需求拆成子任务，给每个子任务分配合适的工人
+2. **委派** — Claude 给工人发送结构化的 prompt
+3. **审查** — Claude 读输出，通过就接受，不通过就要求定向修改
+4. **验证** — Claude 跑测试/检查；失败了就回到「委派」那步重来
+
+### 委派协议模板
+
+```
+CONTEXT: [项目背景、相关代码片段、现有模式]
+TASK: [明确的一件事 —— 要具体]
+CONSTRAINTS: [风格规则、哪些不能改、要遵循的现有模式]
+SUCCESS: [能证明输出正确的测试命令或检查清单]
+```
+
+### 安装
+
+```bash
+git clone https://github.com/thomaslau0229/boss-mode.git
+cd boss-mode
+bash setup.sh   # 自动安装并配置 worker 路径
+```
+
+### 自动触发场景
+
+安装后，Claude 会在以下情况自动启用 boss-mode：
+- 即将写超过 30 行新代码 → 把草稿委派给 DeepSeek
+- 写测试套件或用例 → 委派给 DeepSeek
+- 写文档、PR 描述、commit 信息（超过 200 字）→ 委派草稿
+- 调试推理：分析错误日志、追溯根因 → 委派给 DeepSeek
+- 批量重复任务（翻译、格式化）→ 委派给 Groq/Ollama
+
+### 致谢
+
+- [superpowers](https://github.com/obra/superpowers) — 技能框架与工作流模式
+- [Andrej Karpathy 的 LLM 编码指南](https://x.com/karpathy/status/2015883857489522876)
+- [agentskills.io](https://agentskills.io) — 技能规范格式
