@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0] - 2026-04-30
+
+### Added
+- `worker.py` — unified entry point routing to all backends (DeepSeek Pro/Flash, Groq, Ollama)
+- `--context-file <path>` — inject file content into prompt so Boss doesn't burn tokens copying code
+- `--code-only` — system prompt forcing clean code output (no markdown, no explanations)
+- `--output-file <path>` — Worker writes result directly to file; Boss only runs tests, near-zero output tokens
+
 ## [1.1.0] - 2026-04-29
 
 ### Added
