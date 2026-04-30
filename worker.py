@@ -155,6 +155,15 @@ def main():
             "https://api.deepseek.com", api_key, "deepseek-v4-pro", prompt, system
         )
 
+    # Strip markdown fences — cheap models ignore CODE_ONLY_SYSTEM sometimes
+    if code_only:
+        s = result.strip()
+        if s.startswith("```"):
+            lines = s.split("\n")
+            start = 1  # skip opening fence line (e.g. ```python)
+            end = len(lines) - 1 if lines[-1].strip() == "```" else len(lines)
+            result = "\n".join(lines[start:end])
+
     if output_file:
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(result)
