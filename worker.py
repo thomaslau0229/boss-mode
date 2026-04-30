@@ -14,6 +14,7 @@ Boss Mode options (combine with any backend):
   --context-file <path>   Inject file content as context (saves Boss output tokens)
   --code-only             Worker outputs code only — no explanations or markdown
   --output-file <path>    Write result to file instead of stdout (Boss just runs tests)
+  --max-tokens <int>      Limit response tokens (applies to all backends)
 
 Environment variables:
   DEEPSEEK_API_KEY   — required for --flash / default Pro backend
@@ -40,13 +41,17 @@ CODE_ONLY_SYSTEM = (
 
 
 def call_openai_compat(base_url: str, api_key: str, model: str,
-                        prompt: str, system: str = "") -> str:
+                        prompt: str, system: str = "", max_tokens: int = 0) -> str:
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    payload = json.dumps({"model": model, "messages": messages}).encode("utf-8")
+    payload_dict = {"model": model, "messages": messages}
+    if max_tokens > 0:
+        payload_dict["max_tokens"] = max_tokens
+
+    payload = json.dumps(payload_dict).encode("utf-8")
     req = urllib.request.Request(
         f"{base_url}/chat/completions",
         data=payload,
@@ -61,13 +66,17 @@ def call_openai_compat(base_url: str, api_key: str, model: str,
         return data["choices"][0]["message"]["content"]
 
 
-def call_ollama(model: str, prompt: str, system: str = "") -> str:
+def call_ollama(model: str, prompt: str, system: str = "", max_tokens: int = 0) -> str:
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
-    payload = json.dumps({"model": model, "messages": messages, "stream": False}).encode("utf-8")
+    payload_dict = {"model": model, "messages": messages, "stream": False}
+    if max_tokens > 0:
+        payload_dict["options"] = {"num_predict": max_tokens}
+
+    payload = json.dumps(payload_dict).encode("utf-8")
     req = urllib.request.Request(
         f"{OLLAMA_HOST}/api/chat",
         data=payload,
@@ -89,6 +98,7 @@ def main():
     context_file = None
     output_file = None
     code_only = False
+    max_tokens = 0
     remaining = []
 
     i = 0
@@ -111,6 +121,13 @@ def main():
         elif a == "--output-file":
             i += 1
             output_file = args[i]
+        elif a == "--max-tokens":
+            i += 1
+            try:
+                max_tokens = int(args[i])
+            except (ValueError, IndexError):
+                print("Error: --max-tokens requires an integer argument.", file=sys.stderr)
+                sys.exit(1)
         else:
             remaining.append(a)
         i += 1
@@ -120,7 +137,6 @@ def main():
         print("Error: missing task prompt.", file=sys.stderr)
         sys.exit(1)
 
-    # Prepend file context — Worker sees the code, Boss doesn't burn output tokens on it
     if context_file:
         with open(context_file, encoding="utf-8") as f:
             content = f.read()
@@ -129,14 +145,14 @@ def main():
     system = CODE_ONLY_SYSTEM if code_only else ""
 
     if backend == "ollama":
-        result = call_ollama(ollama_model, prompt, system)
+        result = call_ollama(ollama_model, prompt, system, max_tokens)
     elif backend == "groq":
         api_key = os.environ.get("GROQ_API_KEY", "")
         if not api_key:
             print("Error: GROQ_API_KEY not set.", file=sys.stderr)
             sys.exit(1)
         result = call_openai_compat(
-            "https://api.groq.com/openai/v1", api_key, GROQ_DEFAULT, prompt, system
+            "https://api.groq.com/openai/v1", api_key, GROQ_DEFAULT, prompt, system, max_tokens
         )
     elif backend == "deepseek-flash":
         api_key = os.environ.get("DEEPSEEK_API_KEY", "")
@@ -144,7 +160,7 @@ def main():
             print("Error: DEEPSEEK_API_KEY not set.", file=sys.stderr)
             sys.exit(1)
         result = call_openai_compat(
-            "https://api.deepseek.com", api_key, "deepseek-v4-flash", prompt, system
+            "https://api.deepseek.com", api_key, "deepseek-v4-flash", prompt, system, max_tokens
         )
     else:  # deepseek-pro
         api_key = os.environ.get("DEEPSEEK_API_KEY", "")
@@ -152,15 +168,14 @@ def main():
             print("Error: DEEPSEEK_API_KEY not set.", file=sys.stderr)
             sys.exit(1)
         result = call_openai_compat(
-            "https://api.deepseek.com", api_key, "deepseek-v4-pro", prompt, system
+            "https://api.deepseek.com", api_key, "deepseek-v4-pro", prompt, system, max_tokens
         )
 
-    # Strip markdown fences — cheap models ignore CODE_ONLY_SYSTEM sometimes
     if code_only:
         s = result.strip()
         if s.startswith("```"):
             lines = s.split("\n")
-            start = 1  # skip opening fence line (e.g. ```python)
+            start = 1
             end = len(lines) - 1 if lines[-1].strip() == "```" else len(lines)
             result = "\n".join(lines[start:end])
 
