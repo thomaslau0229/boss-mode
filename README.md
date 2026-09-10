@@ -1,6 +1,6 @@
 # boss-mode
 
-![boss-mode banner](banner.png)
+![boss-mode GPT-6 Astra banner](banner-gpt6-astra.png)
 
 > A Claude Code skill that stops Claude from spending tokens on work a cheaper model can handle.
 
